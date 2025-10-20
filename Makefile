@@ -1,5 +1,6 @@
 CC = gcc
 CFLAGS = -Wall -g
+LDFLAGS = -pthread
 SOURCES = main.c node.c config.c rpc.c
 OBJECTS = $(SOURCES:.c=.o)
 TARGET = cluster
@@ -7,7 +8,7 @@ TARGET = cluster
 all: $(TARGET)
 
 $(TARGET): $(OBJECTS)
-	$(CC) -o $@ $^
+	$(CC) -o $@ $^ $(LDFLAGS)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
