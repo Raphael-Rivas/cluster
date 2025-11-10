@@ -10,7 +10,7 @@ typedef struct {
 
 int main(void) {
     peer_t peers[10];
-    FILE *file = fopen("node.conf", "r");
+    FILE *file = fopen("nodes.conf", "r");
     if (!file) {
         perror("Erreur d'ouverture du fichier");
         return -1;
