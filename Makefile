@@ -1,23 +1,33 @@
 CC = gcc
-CFLAGS = -Wall -g
-SOURCES = main.c node.c config.c rpc.c
-OBJECTS = $(SOURCES:.c=.o)
-TARGET = cluster
+CFLAGS = -Wall -g -Iinclude
+LDFLAGS = -pthread
+
+SRC_DIR = src
+OBJ_DIR = obj
+BIN_DIR = bin
+INC_DIR = include
+
+SOURCES = $(wildcard $(SRC_DIR)/*.c)
+OBJECTS = $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(SOURCES))
+TARGET = $(BIN_DIR)/cluster
 
 all: $(TARGET)
 
-$(TARGET): $(OBJECTS)
-	$(CC) -o $@ $^
+$(TARGET): $(OBJECTS) | $(BIN_DIR)
+	$(CC) -o $@ $^ $(LDFLAGS)
 
-%.o: %.c
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BIN_DIR) $(OBJ_DIR):
+	mkdir -p $@
 
 .PHONY: all clean fclean re
 
 clean:
-	rm -f $(OBJECTS)
+	rm -rf $(OBJ_DIR)
 
 fclean: clean
-	rm -f $(TARGET)
+	rm -rf $(BIN_DIR)
 
 re: fclean all
