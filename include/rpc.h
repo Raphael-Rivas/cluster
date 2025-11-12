@@ -3,20 +3,27 @@
 
 #include <stdint.h>
 
+// Protocole simplifié : 1 octet
 #define MSG_PING 1
-#define MSG_PONG 2
+#define MSG_PONG 1
 
-typedef struct {
-    uint8_t type;
-    uint32_t node_id;
-    uint32_t timestamp;
-} rpc_message_t;
-
+// Démarre un serveur RPC sur le port spécifié
 int rpc_server_start(int port);
+
+// Gère une connexion client (appelé dans un thread)
 void rpc_handle_client(int client_socket);
+
+// Thread wrapper pour gérer un client
 void* rpc_client_thread(void* arg);
-void rpc_server_run(int server_socket, uint32_t node_id);
-int rpc_send_ping(const char *host, int port, uint32_t node_id);
-int rpc_send_pong(int client_socket, uint32_t node_id);
+
+// Boucle principale du serveur RPC
+void rpc_server_run(int server_socket);
+
+// Envoie un ping à un pair et attend le pong
+// Retourne 0 en cas de succès, -1 en cas d'erreur
+int rpc_send_ping(const char *host, int port);
+
+// Envoie un pong au client
+int rpc_send_pong(int client_socket);
 
 #endif

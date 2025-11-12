@@ -1,33 +1,40 @@
+#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct {
-    int id;
-    char host[64];
-    int port;
-} peer_t;
+// Charge la configuration depuis un fichier
+// Format du fichier : id host port (un par ligne)
+// Exemple : 0 127.0.0.1 9000
+int load_config(const char *filename, peer_t *peers, int max_peers) {
+    FILE *file;
+    int count = 0;
 
-int main(void) {
-    peer_t peers[10];
-    FILE *file = fopen("nodes.conf", "r");
+    // Ouverture du fichier
+    file = fopen(filename, "r");
     if (!file) {
-        perror("Erreur d'ouverture du fichier");
+        perror("[CONFIG] Erreur d'ouverture du fichier");
         return -1;
     }
-    int count = 0;
-    int max_peers = 3;
-    while (count < max_peers && fscanf(file, "%d %63s %d",
-            &peers[count].id, peers[count].host, &peers[count].port) == 3) {
-        count++;
-            }
-    fclose(file);
 
-    printf("Pairs chargés depuis le fichier :\n");
-    for (int i = 0; i < count; i++) {
-        printf("ID: %d | Host: %s | Port: %d\n",
-               peers[i].id, peers[i].host, peers[i].port);
+    // Lecture ligne par ligne
+    while (count < max_peers &&
+           fscanf(file, "%d %63s %d",
+                  &peers[count].id,
+                  peers[count].host,
+                  &peers[count].port) == 3) {
+        count++;
     }
 
-    return 0;
+    fclose(file);
+
+    printf("[CONFIG] %d pair(s) chargé(s) depuis %s\n", count, filename);
+
+    // Affichage des pairs chargés
+    for (int i = 0; i < count; i++) {
+        printf("[CONFIG] Pair %d: ID=%d, Host=%s, Port=%d\n",
+               i, peers[i].id, peers[i].host, peers[i].port);
+    }
+
+    return count;
 }
