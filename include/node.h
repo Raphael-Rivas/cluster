@@ -3,6 +3,10 @@
 
 #include "config.h"
 
+#define FOLLOWER  0
+#define CANDIDATE 1
+#define LEADER    2
+
 // Structure représentant l'état d'un nœud
 typedef struct {
     int node_id;              // ID de ce nœud
@@ -10,6 +14,11 @@ typedef struct {
     peer_t *peers;            // Liste des pairs
     int peer_count;           // Nombre de pairs
     int *peer_status;         // Statut de chaque pair (1=disponible, 0=indisponible)
+
+    int term;                 // terme (cycle de vote) actuel
+    int voted_for;            // personne pour qui le node a voté lors de ce terme
+    int role;                 // valeur numérique représentant follower, canditate ou leader
+
 } node_t;
 
 // Initialise un nœud
@@ -27,5 +36,8 @@ int node_ping_all_peers(node_t *node);
 
 // Boucle de synchronisation principale
 void node_sync_loop(node_t *node);
+
+// Gestion des requêtes de votes
+void node_handle_request_vote();
 
 #endif
