@@ -8,6 +8,8 @@
 #include <errno.h>
 #include <pthread.h>
 
+#include "node.h"
+
 // Démarre un serveur TCP sur le port spécifié
 int rpc_server_start(int port) {
     int server_socket;
@@ -80,7 +82,13 @@ void rpc_handle_client(int client_socket) {
         if (rpc_send_pong(client_socket) < 0) {
             fprintf(stderr, "[RPC] Échec de l'envoi du PONG\n");
         }
-    } else {
+    }
+    /*
+    else if (msg == REQUEST_VOTE) {
+        printf("[RPC] REQUEST_VOTE reçu\n");
+        node_handle_request_vote(node);
+    }*/
+    else {
         fprintf(stderr, "[RPC] Message inconnu: %u\n", msg);
     }
 

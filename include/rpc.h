@@ -6,6 +6,7 @@
 // Protocole simplifié : 1 octet
 #define MSG_PING 1
 #define MSG_PONG 1
+#define REQUEST_VOTE 2
 
 // Démarre un serveur RPC sur le port spécifié
 int rpc_server_start(int port);
