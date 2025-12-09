@@ -1,3 +1,4 @@
+#include "node.h"
 #include "rpc.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,7 +9,6 @@
 #include <errno.h>
 #include <pthread.h>
 
-#include "node.h"
 
 // Démarre un serveur TCP sur le port spécifié
 int rpc_server_start(int port) {
@@ -55,7 +55,7 @@ int rpc_server_start(int port) {
 }
 
 // Gère une connexion client : lit un octet (ping) et répond par un octet (pong)
-void rpc_handle_client(int client_socket) {
+void rpc_handle_client(int client_socket, node_t *node) {
     uint8_t msg;
     ssize_t bytes_received;
 
@@ -83,11 +83,10 @@ void rpc_handle_client(int client_socket) {
             fprintf(stderr, "[RPC] Échec de l'envoi du PONG\n");
         }
     }
-    /*
     else if (msg == REQUEST_VOTE) {
         printf("[RPC] REQUEST_VOTE reçu\n");
         node_handle_request_vote(node);
-    }*/
+    }
     else {
         fprintf(stderr, "[RPC] Message inconnu: %u\n", msg);
     }
@@ -108,18 +107,26 @@ int rpc_send_pong(int client_socket) {
     return 0;
 }
 
+// Structure pour passer les arguments au thread client
+typedef struct {
+    int client_socket;
+    node_t *node;
+} client_thread_args_t;
+
 // Thread wrapper pour gérer un client
 void* rpc_client_thread(void* arg) {
-    int client_socket = *((int*)arg);
-    free(arg);
+    client_thread_args_t *args = (client_thread_args_t*)arg;
+    int client_socket = args->client_socket;
+    node_t *node = args->node;
+    free(args);
 
-    rpc_handle_client(client_socket);
+    rpc_handle_client(client_socket, node);
 
     return NULL;
 }
 
 // Boucle principale du serveur : accepte les connexions et crée un thread par client
-void rpc_server_run(int server_socket) {
+void rpc_server_run(int server_socket, node_t *node) {
     struct sockaddr_in client_addr;
     socklen_t client_len = sizeof(client_addr);
     pthread_t thread_id;
@@ -127,31 +134,33 @@ void rpc_server_run(int server_socket) {
     printf("[RPC] Serveur en écoute...\n");
 
     while (1) {
-        // Allocation pour le socket client (sera libéré dans le thread)
-        int* client_socket = malloc(sizeof(int));
-        if (client_socket == NULL) {
+        // Allocation pour les arguments du thread client
+        client_thread_args_t *args = malloc(sizeof(client_thread_args_t));
+        if (args == NULL) {
             perror("[RPC] Memory allocation failed");
             continue;
         }
 
         // Acceptation de la connexion
-        *client_socket = accept(server_socket, (struct sockaddr*)&client_addr, &client_len);
+        args->client_socket = accept(server_socket, (struct sockaddr*)&client_addr, &client_len);
 
-        if (*client_socket < 0) {
+        if (args->client_socket < 0) {
             perror("[RPC] Accept failed");
-            free(client_socket);
+            free(args);
             continue;
         }
+
+        args->node = node;
 
         printf("[RPC] Nouvelle connexion de %s:%d\n",
                inet_ntoa(client_addr.sin_addr),
                ntohs(client_addr.sin_port));
 
         // Création du thread pour gérer le client
-        if (pthread_create(&thread_id, NULL, rpc_client_thread, client_socket) != 0) {
+        if (pthread_create(&thread_id, NULL, rpc_client_thread, args) != 0) {
             perror("[RPC] Thread creation failed");
-            close(*client_socket);
-            free(client_socket);
+            close(args->client_socket);
+            free(args);
             continue;
         }
 

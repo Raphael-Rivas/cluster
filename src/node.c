@@ -9,12 +9,13 @@
 // Structure pour passer des arguments au thread du serveur
 typedef struct {
     int server_socket;
+    node_t *node;
 } server_thread_args_t;
 
-// Thread pour ex�cuter le serveur RPC
+// Thread pour exécuter le serveur RPC
 static void* server_thread_func(void* arg) {
     server_thread_args_t* args = (server_thread_args_t*)arg;
-    rpc_server_run(args->server_socket);
+    rpc_server_run(args->server_socket, args->node);
     free(args);
     return NULL;
 }
@@ -106,15 +107,16 @@ int node_start_server(node_t *node) {
     // Allocation des arguments pour le thread
     server_thread_args_t *args = malloc(sizeof(server_thread_args_t));
     if (!args) {
-        fprintf(stderr, "[NODE] �chec d'allocation m�moire pour le thread serveur\n");
+        fprintf(stderr, "[NODE] Échec d'allocation mémoire pour le thread serveur\n");
         close(server_socket);
         return -1;
     }
     args->server_socket = server_socket;
+    args->node = node;  // Liaison du node au serveur RPC
 
-    // Cr�ation du thread serveur
+    // Création du thread serveur
     if (pthread_create(&server_thread, NULL, server_thread_func, args) != 0) {
-        fprintf(stderr, "[NODE] �chec de cr�ation du thread serveur\n");
+        fprintf(stderr, "[NODE] Échec de création du thread serveur\n");
         free(args);
         close(server_socket);
         return -1;
@@ -187,6 +189,6 @@ void node_sync_loop(node_t *node) {
     }
 }
 
-void node_handle_request_vote() {
+void node_handle_request_vote(node_t *node) {
 
 }

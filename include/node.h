@@ -38,6 +38,6 @@ int node_ping_all_peers(node_t *node);
 void node_sync_loop(node_t *node);
 
 // Gestion des requêtes de votes
-void node_handle_request_vote();
+void node_handle_request_vote(node_t *node);
 
 #endif
