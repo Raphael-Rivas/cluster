@@ -85,7 +85,28 @@ void rpc_handle_client(int client_socket, node_t *node) {
     }
     else if (msg == REQUEST_VOTE) {
         printf("[RPC] REQUEST_VOTE reçu\n");
-        node_handle_request_vote(node);
+
+        // Lecture des paramètres : candidate_id (4 octets) et candidate_term (4 octets)
+        int32_t candidate_id, candidate_term;
+
+        if (recv(client_socket, &candidate_id, sizeof(int32_t), 0) != sizeof(int32_t)) {
+            fprintf(stderr, "[RPC] Échec de lecture du candidate_id\n");
+            close(client_socket);
+            return;
+        }
+
+        if (recv(client_socket, &candidate_term, sizeof(int32_t), 0) != sizeof(int32_t)) {
+            fprintf(stderr, "[RPC] Échec de lecture du candidate_term\n");
+            close(client_socket);
+            return;
+        }
+
+        // Conversion network byte order -> host byte order
+        candidate_id = ntohl(candidate_id);
+        candidate_term = ntohl(candidate_term);
+
+        printf("[RPC] REQUEST_VOTE de candidat %d (terme %d)\n", candidate_id, candidate_term);
+        node_handle_request_vote(node, candidate_id, candidate_term);
     }
     else {
         fprintf(stderr, "[RPC] Message inconnu: %u\n", msg);
@@ -222,3 +243,69 @@ int rpc_send_ping(const char *host, int port) {
         return -1;
     }
 }
+
+// Envoie un REQUEST_VOTE à un pair
+int rpc_send_vote_request(const char *host, int port, int candidate_id, int candidate_term) {
+    int client_socket;
+    struct sockaddr_in server_addr;
+    uint8_t msg;
+    int32_t id_net, term_net;
+
+    // Création du socket
+    client_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (client_socket < 0) {
+        perror("[RPC] Socket creation failed");
+        return -1;
+    }
+
+    // Configuration de l'adresse du serveur
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(port);
+
+    if (inet_pton(AF_INET, host, &server_addr.sin_addr) <= 0) {
+        perror("[RPC] Invalid address");
+        close(client_socket);
+        return -1;
+    }
+
+    // Connexion au serveur
+    if (connect(client_socket, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+        fprintf(stderr, "[RPC] Connexion à %s:%d impossible\n", host, port);
+        close(client_socket);
+        return -1;
+    }
+
+    // Envoi du type de message REQUEST_VOTE
+    msg = REQUEST_VOTE;
+    if (send(client_socket, &msg, 1, 0) < 0) {
+        perror("[RPC] Send failed");
+        close(client_socket);
+        return -1;
+    }
+
+    // Conversion host byte order -> network byte order
+    id_net = htonl(candidate_id);
+    term_net = htonl(candidate_term);
+
+    // Envoi du candidate_id
+    if (send(client_socket, &id_net, sizeof(int32_t), 0) < 0) {
+        perror("[RPC] Send candidate_id failed");
+        close(client_socket);
+        return -1;
+    }
+
+    // Envoi du candidate_term
+    if (send(client_socket, &term_net, sizeof(int32_t), 0) < 0) {
+        perror("[RPC] Send candidate_term failed");
+        close(client_socket);
+        return -1;
+    }
+
+    printf("[RPC] REQUEST_VOTE envoyé à %s:%d (candidat %d, terme %d)\n",
+           host, port, candidate_id, candidate_term);
+
+    close(client_socket);
+    return 0;
+}
+

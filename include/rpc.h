@@ -28,4 +28,8 @@ int rpc_send_ping(const char *host, int port);
 // Envoie un pong au client
 int rpc_send_pong(int client_socket);
 
+// Envoie une requête de vote à un pair
+// Retourne 0 en cas de succès, -1 en cas d'erreur
+int rpc_send_vote_request(const char *host, int port, int candidate_id, int candidate_term);
+
 #endif

@@ -37,7 +37,10 @@ int node_ping_all_peers(node_t *node);
 // Boucle de synchronisation principale
 void node_sync_loop(node_t *node);
 
-// Gestion des requêtes de votes
-void node_handle_request_vote(node_t *node);
+// Gestion des requêtes de votes (réception)
+void node_handle_request_vote(node_t *node, int candidate_id, int candidate_term);
+
+// Envoi de requêtes de vote à tous les pairs (émission)
+void node_request_votes(node_t *node);
 
 #endif

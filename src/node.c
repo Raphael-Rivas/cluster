@@ -189,6 +189,60 @@ void node_sync_loop(node_t *node) {
     }
 }
 
-void node_handle_request_vote(node_t *node) {
+void node_handle_request_vote(node_t *node, int candidate_id, int candidate_term) {
+    printf("[NODE %d] Traitement REQUEST_VOTE du candidat %d (terme %d)\n",
+           node->node_id, candidate_id, candidate_term);
 
+    // Règle 1 : Si le terme du candidat est inférieur au terme actuel, rejeter
+    if (candidate_term < node->term) {
+        printf("[NODE %d] ❌ Vote REFUSÉ pour candidat %d - terme obsolète (%d < %d)\n",
+               node->node_id, candidate_id, candidate_term, node->term);
+        return;
+    }
+
+    // Règle 2 : Si le terme du candidat est supérieur, mettre à jour le terme local
+    if (candidate_term > node->term) {
+        printf("[NODE %d] Mise à jour du terme : %d → %d\n",
+               node->node_id, node->term, candidate_term);
+        node->term = candidate_term;
+        node->voted_for = -1;  // Réinitialiser le vote pour le nouveau terme
+        node->role = FOLLOWER;  // Redevenir follower
+    }
+
+    // Règle 3 : Un nœud vote pour un seul candidat par terme
+    if (node->voted_for == -1 || node->voted_for == candidate_id) {
+        // Accorder le vote
+        node->voted_for = candidate_id;
+        printf("[NODE %d] ✅ Vote ACCORDÉ pour candidat %d (terme %d)\n",
+               node->node_id, candidate_id, candidate_term);
+    } else {
+        // Refuser le vote (déjà voté pour un autre candidat)
+        printf("[NODE %d] ❌ Vote REFUSÉ pour candidat %d - déjà voté pour %d (terme %d)\n",
+               node->node_id, candidate_id, node->voted_for, node->term);
+    }
+}
+
+void node_request_votes(node_t *node) {
+    printf("\n[NODE %d] 🗳️  Demande de votes à tous les pairs (terme %d)\n",
+           node->node_id, node->term);
+
+    // Voter pour soi-même
+    node->voted_for = node->node_id;
+    printf("[NODE %d] Vote pour soi-même\n", node->node_id);
+
+    // Envoyer REQUEST_VOTE à tous les pairs
+    for (int i = 0; i < node->peer_count; i++) {
+        printf("[NODE %d] Envoi REQUEST_VOTE à pair %d (%s:%d)\n",
+               node->node_id, node->peers[i].id, node->peers[i].host, node->peers[i].port);
+
+        int result = rpc_send_vote_request(node->peers[i].host, node->peers[i].port,
+                                           node->node_id, node->term);
+
+        if (result < 0) {
+            printf("[NODE %d] ⚠️  Échec d'envoi à pair %d\n", node->node_id, node->peers[i].id);
+        }
+    }
+
+    printf("[NODE %d] Requêtes de vote envoyées à %d pairs\n\n",
+           node->node_id, node->peer_count);
 }
