@@ -44,6 +44,13 @@ Terminal 3 :
     make run3
 ```
 
+## TODO
+
+- envoyer les résultats après node_handle_request_vote dans un attribut votes_received
+- question 4 (tick pour savoir qui est le premier à se présenter candidat)
+- gestion (victoire) du vote
+- tests pour l'étape 2 
+
 ## Auteurs
 
 - Cyprien BONS
