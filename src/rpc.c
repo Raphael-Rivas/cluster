@@ -84,18 +84,18 @@ void rpc_handle_client(int client_socket, node_t *node) {
       fprintf(stderr, "[RPC] Échec de l'envoi du PONG\n");
     }
   } else if (msg == REQUEST_VOTE) {
-    // Lecture des paramètres : candidate_id (4 octets) et candidate_term (4
-    // octets)
-    int32_t candidate_id, candidate_term;
+    // Lecture des paramètres : candidate_id (4), candidate_term (4),
+    // last_log_index (4), last_log_term (4)
+    int32_t candidate_id, candidate_term, last_log_index, last_log_term;
 
     if (recv(client_socket, &candidate_id, sizeof(int32_t), 0) !=
-        sizeof(int32_t)) {
-      close(client_socket);
-      return;
-    }
-
-    if (recv(client_socket, &candidate_term, sizeof(int32_t), 0) !=
-        sizeof(int32_t)) {
+            sizeof(int32_t) ||
+        recv(client_socket, &candidate_term, sizeof(int32_t), 0) !=
+            sizeof(int32_t) ||
+        recv(client_socket, &last_log_index, sizeof(int32_t), 0) !=
+            sizeof(int32_t) ||
+        recv(client_socket, &last_log_term, sizeof(int32_t), 0) !=
+            sizeof(int32_t)) {
       close(client_socket);
       return;
     }
@@ -103,18 +103,18 @@ void rpc_handle_client(int client_socket, node_t *node) {
     // Conversion network byte order -> host byte order
     candidate_id = ntohl(candidate_id);
     candidate_term = ntohl(candidate_term);
+    last_log_index = ntohl(last_log_index);
+    last_log_term = ntohl(last_log_term);
 
     // Traiter la requête de vote et obtenir le résultat
-    int vote_result =
-        node_handle_request_vote(node, candidate_id, candidate_term);
+    int vote_result = node_handle_request_vote(
+        node, candidate_id, candidate_term, last_log_index, last_log_term);
 
     // Envoyer la réponse au candidat (1 octet : 1 = accordé, 0 = refusé)
     uint8_t response = vote_result ? VOTE_GRANTED : VOTE_DENIED;
     if (send(client_socket, &response, 1, 0) < 0) {
       fprintf(stderr, "[RPC] Échec de l'envoi de la réponse du vote\n");
     }
-    // MSG_HEARTBEAT removed (succeseded by MSG_APPEND_ENTRIES)
-    // Legacy support removed to fix linker error
   } else if (msg == MSG_APPEND_ENTRIES) {
     int32_t leader_id, leader_term, prev_log_index, prev_log_term,
         entries_count, leader_commit;
@@ -363,11 +363,12 @@ int rpc_send_ping(const char *host, int port) {
 
 // Envoie un REQUEST_VOTE à un pair
 int rpc_send_vote_request(const char *host, int port, int candidate_id,
-                          int candidate_term) {
+                          int candidate_term, int last_log_index,
+                          int last_log_term) {
   int client_socket;
   struct sockaddr_in server_addr;
   uint8_t msg;
-  int32_t id_net, term_net;
+  int32_t id_net, term_net, lli_net, llt_net;
 
   // Création du socket
   client_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -406,6 +407,8 @@ int rpc_send_vote_request(const char *host, int port, int candidate_id,
   // Conversion host byte order -> network byte order
   id_net = htonl(candidate_id);
   term_net = htonl(candidate_term);
+  lli_net = htonl(last_log_index);
+  llt_net = htonl(last_log_term);
 
   // Envoi du candidate_id
   if (send(client_socket, &id_net, sizeof(int32_t), 0) < 0) {
@@ -417,6 +420,20 @@ int rpc_send_vote_request(const char *host, int port, int candidate_id,
   // Envoi du candidate_term
   if (send(client_socket, &term_net, sizeof(int32_t), 0) < 0) {
     perror("[RPC] Send candidate_term failed");
+    close(client_socket);
+    return -1;
+  }
+
+  // Envoi du last_log_index
+  if (send(client_socket, &lli_net, sizeof(int32_t), 0) < 0) {
+    perror("[RPC] Send last_log_index failed");
+    close(client_socket);
+    return -1;
+  }
+
+  // Envoi du last_log_term
+  if (send(client_socket, &llt_net, sizeof(int32_t), 0) < 0) {
+    perror("[RPC] Send last_log_term failed");
     close(client_socket);
     return -1;
   }

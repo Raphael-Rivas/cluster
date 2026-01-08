@@ -30,7 +30,7 @@ int node_init(node_t *node, int node_id, const char *config_file) {
   // Chargement de la configuration
   total_peers = load_config(config_file, all_peers, MAX_PEERS);
   if (total_peers < 0) {
-    fprintf(stderr, "[NODE] �chec du chargement de la configuration\n");
+    fprintf(stderr, "[NODE] Échec du chargement de la configuration\n");
     return -1;
   }
 
@@ -61,7 +61,7 @@ int node_init(node_t *node, int node_id, const char *config_file) {
   }
 
   if (!found) {
-    fprintf(stderr, "[NODE] NSud ID %d introuvable dans la configuration\n",
+    fprintf(stderr, "[NODE] Nœud ID %d introuvable dans la configuration\n",
             node_id);
     return -1;
   }
@@ -94,13 +94,13 @@ int node_init(node_t *node, int node_id, const char *config_file) {
 
   node->peer_count = peer_idx;
 
-  printf("[NODE] NSud %d initialis� (port %d, %d pair(s))\n", node->node_id,
+  printf("[NODE] Nœud %d initialisé (port %d, %d pair(s))\n", node->node_id,
          node->port, node->peer_count);
 
   return 0;
 }
 
-// Lib�re les ressources d'un nSud
+// Libre les ressources d'un nSud
 void node_cleanup(node_t *node) {
   if (node->peers) {
     free(node->peers);
@@ -121,15 +121,15 @@ void node_cleanup(node_t *node) {
   }
 }
 
-// D�marre le serveur RPC du nSud dans un thread s�par�
+// Dmarre le serveur RPC du nSud dans un thread spar
 int node_start_server(node_t *node) {
   int server_socket;
   pthread_t server_thread;
 
-  // D�marrage du serveur RPC
+  // Dmarrage du serveur RPC
   server_socket = rpc_server_start(node->port);
   if (server_socket < 0) {
-    fprintf(stderr, "[NODE] �chec du d�marrage du serveur RPC\n");
+    fprintf(stderr, "[NODE] Échec du démarrage du serveur RPC\n");
     return -1;
   }
 
@@ -152,10 +152,10 @@ int node_start_server(node_t *node) {
     return -1;
   }
 
-  // D�tachement du thread (nettoyage automatique)
+  // Dtachement du thread (nettoyage automatique)
   pthread_detach(server_thread);
 
-  printf("[NODE] Serveur RPC d�marr� dans un thread s�par�\n");
+  printf("[NODE] Serveur RPC démarré dans un thread séparé\n");
 
   return 0;
 }
@@ -207,7 +207,7 @@ void node_apply_committed_entries(node_t *node) {
   }
 }
 
-// Envoie un ping � tous les pairs et met � jour leur statut
+// Envoie un ping à tous les pairs et met à jour leur statut
 // Retourne 1 si tous les pairs sont disponibles, 0 sinon
 int node_ping_all_peers(node_t *node) {
   int all_available = 1;
@@ -217,14 +217,14 @@ int node_ping_all_peers(node_t *node) {
     int result = rpc_send_ping(node->peers[i].host, node->peers[i].port);
 
     if (result == 0) {
-      // PONG re�u
+      // PONG reu
       if (node->peer_status[i] == 0) {
         printf("[NODE] Pair %d (%s:%d) est maintenant DISPONIBLE\n",
                node->peers[i].id, node->peers[i].host, node->peers[i].port);
       }
       node->peer_status[i] = 1;
     } else {
-      // Pas de r�ponse
+      // Pas de rponse
       node->peer_status[i] = 0;
       all_available = 0;
     }
@@ -237,7 +237,7 @@ int node_ping_all_peers(node_t *node) {
 void node_sync_loop(node_t *node) {
   int synchronized = 0;
 
-  printf("[NODE] D�marrage de la boucle de synchronisation...\n");
+  printf("[NODE] Démarrage de la boucle de synchronisation...\n");
   printf("[NODE] En attente de tous les pairs...\n");
 
   while (!synchronized) {
@@ -266,11 +266,23 @@ void node_sync_loop(node_t *node) {
   }
 }
 
-int node_handle_request_vote(node_t *node, int candidate_id,
-                             int candidate_term) {
+int node_handle_request_vote(node_t *node, int candidate_id, int candidate_term,
+                             int last_log_index, int last_log_term) {
   // Règle 1 : Si le terme du candidat est inférieur au terme actuel, rejeter
   if (candidate_term < node->term) {
     return 0; // Vote refusé
+  }
+
+  // Règle de sécurité Raft (Log Matching Property)
+  // Vérifier si le log du candidat est au moins aussi à jour que le nôtre
+  int my_last_log_term = node_get_last_log_term(node);
+  int my_last_log_index = node_get_last_log_index(node);
+
+  if (last_log_term < my_last_log_term) {
+    return 0; // Notre log est plus récent (terme plus élevé)
+  }
+  if (last_log_term == my_last_log_term && last_log_index < my_last_log_index) {
+    return 0; // Mêmes termes, mais notre log est plus long
   }
 
   // Règle 2 : Si le terme du candidat est supérieur, mettre à jour le terme
@@ -305,8 +317,11 @@ void node_request_votes(node_t *node) {
 
   // Envoyer REQUEST_VOTE à tous les pairs et compter les votes
   for (int i = 0; i < node->peer_count; i++) {
+    int last_log_index = node_get_last_log_index(node);
+    int last_log_term = node_get_last_log_term(node);
     int result = rpc_send_vote_request(node->peers[i].host, node->peers[i].port,
-                                       node->node_id, node->term);
+                                       node->node_id, node->term,
+                                       last_log_index, last_log_term);
 
     if (result == 1) {
       // Vote accordé

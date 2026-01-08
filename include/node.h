@@ -80,8 +80,8 @@ void node_sync_loop(node_t *node);
 
 // Gestion des requêtes de votes (réception)
 // Retourne 1 si le vote est accordé, 0 sinon
-int node_handle_request_vote(node_t *node, int candidate_id,
-                             int candidate_term);
+int node_handle_request_vote(node_t *node, int candidate_id, int candidate_term,
+                             int last_log_index, int last_log_term);
 
 // Envoi de requêtes de vote à tous les pairs (émission)
 void node_request_votes(node_t *node);
@@ -108,6 +108,9 @@ int node_handle_client_put(node_t *node, const char *key, int value,
 // Retourne la valeur ou -1 si introuvable. Remplit found=1 si trouvé.
 int node_handle_client_get(node_t *node, const char *key, int *found,
                            int *leader_id);
+
+int node_get_last_log_index(node_t *node);
+int node_get_last_log_term(node_t *node);
 
 // Gère la réception d'un AppendEntries (Heartbeat ou Réplication)
 // Retourne 1 si succès, 0 si échec (term obsolète ou incohérence de log)
