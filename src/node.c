@@ -52,7 +52,9 @@ int node_init(node_t *node, int node_id, const char *config_file) {
       // Initialisation du timeout d'élection (150-300ms, randomisé)
       srand(time(NULL) + node_id); // Seed différent pour chaque nœud
       node->election_timeout = 150 + (rand() % 150); // 150-300ms
-      node->last_heartbeat_time = node_get_current_time_ms();
+      // Délai de grâce au démarrage : +500ms pour laisser le temps de recevoir
+      // un heartbeat du leader existant avant de lancer une élection
+      node->last_heartbeat_time = node_get_current_time_ms() + 500;
       node->last_heartbeat_sent = 0; // Pas encore envoyé de heartbeat
 
       found = 1;

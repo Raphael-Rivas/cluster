@@ -56,17 +56,12 @@ $(BIN_DIR) $(OBJ_DIR):
 
 # Extraction du numéro depuis le nom de la cible (ex: run1 -> 1)
 # On soustrait 1 pour avoir l'ID du noeud (ex: run1 -> noeud 0)
-# Si le noeud n'existe pas dans nodes.conf, on l'ajoute automatiquement
+# Si le noeud n'existe pas dans nodes.conf, affiche une erreur
 run%: $(TARGET_NODE)
 	@NODE_ID=$$(($(patsubst run%,%,$@) - 1)); \
 	if ! grep -q "^$$NODE_ID " src/nodes.conf; then \
-		echo "Node $$NODE_ID non trouve. Ajout automatique..."; \
-		MAX_PORT=$$(awk '{print $$3}' src/nodes.conf | sort -n | tail -1); \
-		if [ -z "$$MAX_PORT" ]; then MAX_PORT=8999; fi; \
-		NEW_PORT=$$(($$MAX_PORT + 1)); \
-		echo "" >> src/nodes.conf; \
-		echo "$$NODE_ID 127.0.0.1 $$NEW_PORT" >> src/nodes.conf; \
-		echo "Ajout de: $$NODE_ID 127.0.0.1 $$NEW_PORT"; \
+		echo "Erreur: ce noeud n'est pas dans le fichier nodes.conf"; \
+		exit 1; \
 	fi; \
 	echo "Lancement du noeud $$NODE_ID..."; \
 	$(TARGET_NODE) $$NODE_ID
