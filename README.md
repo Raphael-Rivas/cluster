@@ -51,25 +51,24 @@ make build
 
 #### Lancer le cluster
 
-Ouvrez **3 terminaux** et lancez un nœud dans chacun :
+Lancez autant de terminaux que de nœuds définis dans `nodes.conf` :
 
 **Terminal 1 :**
 ```bash
-make run1
-# ou directement: ./bin/cluster 0
+make run1  # Lance le noeud 0
 ```
 
 **Terminal 2 :**
 ```bash
-make run2
-# ou directement: ./bin/cluster 1
+make run2  # Lance le noeud 1
 ```
 
 **Terminal 3 :**
 ```bash
-make run3
-# ou directement: ./bin/cluster 2
+make run3  # Lance le noeud 2
 ```
+ 
+Vous pouvez continuer ainsi : `make run4`, `make run5`, etc.
 
 #### Commandes disponibles
 
@@ -79,6 +78,7 @@ make build     # Compile le projet
 make re        # Recompile tout
 make clean     # Nettoie les fichiers objets
 make fclean    # Nettoie tout (objets + exécutable)
+make deploy    # Push vers etape3 et development
 ```
 
 ## Tests et Scénarios

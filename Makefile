@@ -30,16 +30,14 @@ help:
 	@echo "  make fclean     - Nettoie tout (objets + executable)"
 	@echo ""
 	@echo "Execution:"
-	@echo "  make run1       - Lance le noeud 0"
-	@echo "  make run2       - Lance le noeud 1"
-	@echo "  make run3       - Lance le noeud 2"
+	@echo "  make run<N>     - Lance le noeud N-1 (ex: make run1 -> noeud 0)"
+	@echo "  make deploy     - Push vers etape3 et development"
 	@echo ""
 	@echo "Utilisation:"
 	@echo "  1. Compiler: make build"
-	@echo "  2. Ouvrir 3 terminaux"
-	@echo "  3. Terminal 1: make run1"
-	@echo "  4. Terminal 2: make run2"
-	@echo "  5. Terminal 3: make run3"
+	@echo "  2. Pour lancer un noeud: make run<N>"
+	@echo "     Exemple: make run1 (noeud 0), make run2 (noeud 1), etc."
+	@echo "  3. Deploiement: make deploy"
 	@echo ""
 
 build: $(TARGET_NODE) $(TARGET_CLIENT)
@@ -56,19 +54,30 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
 $(BIN_DIR) $(OBJ_DIR):
 	mkdir -p $@
 
-run1: $(TARGET_NODE)
-	@echo "Lancement du noeud 0..."
-	@$(TARGET_NODE) 0
+# Extraction du numéro depuis le nom de la cible (ex: run1 -> 1)
+# On soustrait 1 pour avoir l'ID du noeud (ex: run1 -> noeud 0)
+# Si le noeud n'existe pas dans nodes.conf, on l'ajoute automatiquement
+run%: $(TARGET_NODE)
+	@NODE_ID=$$(($(patsubst run%,%,$@) - 1)); \
+	if ! grep -q "^$$NODE_ID " src/nodes.conf; then \
+		echo "Node $$NODE_ID non trouve. Ajout automatique..."; \
+		MAX_PORT=$$(awk '{print $$3}' src/nodes.conf | sort -n | tail -1); \
+		if [ -z "$$MAX_PORT" ]; then MAX_PORT=8999; fi; \
+		NEW_PORT=$$(($$MAX_PORT + 1)); \
+		echo "" >> src/nodes.conf; \
+		echo "$$NODE_ID 127.0.0.1 $$NEW_PORT" >> src/nodes.conf; \
+		echo "Ajout de: $$NODE_ID 127.0.0.1 $$NEW_PORT"; \
+	fi; \
+	echo "Lancement du noeud $$NODE_ID..."; \
+	$(TARGET_NODE) $$NODE_ID
 
-run2: $(TARGET_NODE)
-	@echo "Lancement du noeud 1..."
-	@$(TARGET_NODE) 1
+deploy:
+	@echo "Pushing to etape3..."
+	git push origin HEAD:etape3
+	@echo "Pushing to development..."
+	git push origin HEAD:development
 
-run3: $(TARGET_NODE)
-	@echo "Lancement du noeud 2..."
-	@$(TARGET_NODE) 2
-
-.PHONY: help build clean fclean re run1 run2 run3
+.PHONY: help build clean fclean re run% deploy
 
 clean:
 	rm -rf $(OBJ_DIR)
