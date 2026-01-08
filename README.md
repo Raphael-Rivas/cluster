@@ -185,13 +185,10 @@ Les messages échangés :
 - [x] Détection de la majorité et élection du leader
 - [x] Gestion des termes et prévention des conflits
 - [x] Réinitialisation des timeouts lors de réception de votes
-
-### 🔄 À venir
-
-- [ ] Heartbeats du leader vers les followers
-- [ ] Réplication de log
-- [ ] Gestion de la persistance
-- [ ] Tests unitaires complets 
+- [x] Heartbeats du leader vers les followers
+- [x] Réplication de log (AppendEntries avec payload)
+- [x] Table clé-valeur distribuée (KV Store)
+- [x] Client CLI (PUT/GET) avec redirection leader
 
 ## Auteurs
 

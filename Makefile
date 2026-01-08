@@ -7,9 +7,14 @@ OBJ_DIR = obj
 BIN_DIR = bin
 INC_DIR = include
 
-SOURCES = $(wildcard $(SRC_DIR)/*.c)
-OBJECTS = $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(SOURCES))
-TARGET = $(BIN_DIR)/cluster
+SOURCES_NODE = $(SRC_DIR)/main.c $(SRC_DIR)/node.c $(SRC_DIR)/rpc.c $(SRC_DIR)/config.c
+OBJECTS_NODE = $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(SOURCES_NODE))
+
+SOURCES_CLIENT = $(SRC_DIR)/client.c
+OBJECTS_CLIENT = $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(SOURCES_CLIENT))
+
+TARGET_NODE = $(BIN_DIR)/cluster
+TARGET_CLIENT = $(BIN_DIR)/raftclient
 
 .DEFAULT_GOAL := help
 

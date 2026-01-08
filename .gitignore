@@ -3,3 +3,6 @@ obj/
 bin/
 *.o
 cluster
+raftclient
+*.log
+test_phase3.sh

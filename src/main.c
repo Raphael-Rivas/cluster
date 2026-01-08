@@ -9,6 +9,10 @@ int main(int argc, char *argv[]) {
     int node_id;
     const char *config_file = "src/nodes.conf";
 
+    // Désactive le buffering pour les logs
+    setbuf(stdout, NULL);
+    setbuf(stderr, NULL);
+
     // Vérification des arguments
     if (argc != 2) {
         fprintf(stderr, "Usage: %s <node_id>\n", argv[0]);
