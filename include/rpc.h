@@ -8,6 +8,10 @@
 #define MSG_PING 1
 #define MSG_PONG 1
 #define REQUEST_VOTE 2
+#define VOTE_GRANTED 1
+#define VOTE_DENIED 0
+#define MSG_HEARTBEAT 3
+#define MSG_HEARTBEAT_ACK 4
 
 // Démarre un serveur RPC sur le port spécifié
 int rpc_server_start(int port);
@@ -28,8 +32,12 @@ int rpc_send_ping(const char *host, int port);
 // Envoie un pong au client
 int rpc_send_pong(int client_socket);
 
-// Envoie une requête de vote à un pair
-// Retourne 0 en cas de succès, -1 en cas d'erreur
+// Envoie une requête de vote à un pair et attend la réponse
+// Retourne 1 si vote accordé, 0 si refusé, -1 en cas d'erreur de communication
 int rpc_send_vote_request(const char *host, int port, int candidate_id, int candidate_term);
+
+// Envoie un heartbeat à un pair (leader vers follower)
+// Retourne 0 en cas de succès, -1 en cas d'erreur
+int rpc_send_heartbeat(const char *host, int port, int leader_id, int leader_term);
 
 #endif
