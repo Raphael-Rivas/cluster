@@ -273,6 +273,19 @@ int node_handle_request_vote(node_t *node, int candidate_id, int candidate_term,
     return 0; // Vote refusé
   }
 
+  // LEADER STICKINESS (Prévention de coup d'état)
+  // Si on a reçu un message du leader actuel récement (moins que le timeout
+  // minimum), on ignore les demandes de vote provocatrices (même avec un terme
+  // supérieur). Cela empêche un nœud qui vient de rejoindre (et qui n'a pas
+  // reçu de logs) de perturber le cluster.
+  long elapsed_since_leader =
+      node_get_current_time_ms() - node->last_heartbeat_time;
+  if (node->role == FOLLOWER && elapsed_since_leader < 150) {
+    // 150ms est notre timeout électoral minimum
+    // On rejette poliment le vote pour ne pas perturber la stabilité
+    return 0;
+  }
+
   // Règle de sécurité Raft (Log Matching Property)
   // Vérifier si le log du candidat est au moins aussi à jour que le nôtre
   int my_last_log_term = node_get_last_log_term(node);
