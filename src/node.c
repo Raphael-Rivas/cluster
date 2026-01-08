@@ -5,6 +5,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <sys/time.h>
+#include <time.h>
 
 // Structure pour passer des arguments au thread du serveur
 typedef struct {
@@ -41,6 +43,14 @@ int node_init(node_t *node, int node_id, const char *config_file) {
             node->role = FOLLOWER;
             node->term = 0;
             node->voted_for = -1;
+            node->votes_received = 0;
+
+            // Initialisation du timeout d'élection (150-300ms, randomisé)
+            srand(time(NULL) + node_id);  // Seed différent pour chaque nœud
+            node->election_timeout = 150 + (rand() % 150);  // 150-300ms
+            node->last_heartbeat_time = node_get_current_time_ms();
+            node->last_heartbeat_sent = 0;  // Pas encore envoyé de heartbeat
+
             found = 1;
             break;
         }
@@ -189,60 +199,146 @@ void node_sync_loop(node_t *node) {
     }
 }
 
-void node_handle_request_vote(node_t *node, int candidate_id, int candidate_term) {
-    printf("[NODE %d] Traitement REQUEST_VOTE du candidat %d (terme %d)\n",
-           node->node_id, candidate_id, candidate_term);
-
+int node_handle_request_vote(node_t *node, int candidate_id, int candidate_term) {
     // Règle 1 : Si le terme du candidat est inférieur au terme actuel, rejeter
     if (candidate_term < node->term) {
-        printf("[NODE %d] ❌ Vote REFUSÉ pour candidat %d - terme obsolète (%d < %d)\n",
-               node->node_id, candidate_id, candidate_term, node->term);
-        return;
+        return 0;  // Vote refusé
     }
 
     // Règle 2 : Si le terme du candidat est supérieur, mettre à jour le terme local
     if (candidate_term > node->term) {
-        printf("[NODE %d] Mise à jour du terme : %d → %d\n",
-               node->node_id, node->term, candidate_term);
         node->term = candidate_term;
         node->voted_for = -1;  // Réinitialiser le vote pour le nouveau terme
         node->role = FOLLOWER;  // Redevenir follower
+        node_reset_election_timeout(node);  // Réinitialiser le timeout
     }
 
     // Règle 3 : Un nœud vote pour un seul candidat par terme
     if (node->voted_for == -1 || node->voted_for == candidate_id) {
         // Accorder le vote
         node->voted_for = candidate_id;
-        printf("[NODE %d] ✅ Vote ACCORDÉ pour candidat %d (terme %d)\n",
-               node->node_id, candidate_id, candidate_term);
+        node_reset_election_timeout(node);  // Réinitialiser le timeout car on a vu un candidat
+        return 1;  // Vote accordé
     } else {
         // Refuser le vote (déjà voté pour un autre candidat)
-        printf("[NODE %d] ❌ Vote REFUSÉ pour candidat %d - déjà voté pour %d (terme %d)\n",
-               node->node_id, candidate_id, node->voted_for, node->term);
+        return 0;  // Vote refusé
     }
 }
 
 void node_request_votes(node_t *node) {
-    printf("\n[NODE %d] 🗳️  Demande de votes à tous les pairs (terme %d)\n",
-           node->node_id, node->term);
-
     // Voter pour soi-même
     node->voted_for = node->node_id;
-    printf("[NODE %d] Vote pour soi-même\n", node->node_id);
+    node->votes_received = 1;  // Initialiser avec 1 vote (soi-même)
 
-    // Envoyer REQUEST_VOTE à tous les pairs
+    int nodes_available = 1;  // Compteur de nœuds disponibles (on commence à 1 pour soi-même)
+
+    // Envoyer REQUEST_VOTE à tous les pairs et compter les votes
     for (int i = 0; i < node->peer_count; i++) {
-        printf("[NODE %d] Envoi REQUEST_VOTE à pair %d (%s:%d)\n",
-               node->node_id, node->peers[i].id, node->peers[i].host, node->peers[i].port);
-
         int result = rpc_send_vote_request(node->peers[i].host, node->peers[i].port,
                                            node->node_id, node->term);
 
-        if (result < 0) {
-            printf("[NODE %d] ⚠️  Échec d'envoi à pair %d\n", node->node_id, node->peers[i].id);
+        if (result == 1) {
+            // Vote accordé
+            node->votes_received++;
+            nodes_available++;
+            printf("Node %d: reçu vote de %d\n", node->node_id, node->peers[i].id);
+        } else if (result == 0) {
+            // Vote refusé mais le nœud est disponible
+            nodes_available++;
         }
+        // Si result == -1, le nœud n'est pas joignable (on ne compte pas)
     }
 
-    printf("[NODE %d] Requêtes de vote envoyées à %d pairs\n\n",
-           node->node_id, node->peer_count);
+    // Vérifier si majorité atteinte sur les nœuds DISPONIBLES
+    int majority = nodes_available / 2 + 1;  // Majorité simple des nœuds disponibles
+
+    if (node->votes_received >= majority) {
+        printf("Node %d: élu leader du terme %d\n", node->node_id, node->term);
+        node->role = LEADER;
+        node->last_heartbeat_sent = node_get_current_time_ms();  // Initialiser le timestamp
+        node_reset_election_timeout(node);  // Réinitialiser pour envoyer des heartbeats
+    }
+    // Si pas de majorité, on reste CANDIDATE et on retentera au prochain timeout
+}
+
+// Gère la réception d'un heartbeat du leader
+void node_handle_heartbeat(node_t *node, int leader_id, int leader_term) {
+    // Si le terme du leader est inférieur au nôtre, ignorer
+    if (leader_term < node->term) {
+        return;
+    }
+
+    // Si le terme du leader est supérieur, mettre à jour notre terme
+    if (leader_term > node->term) {
+        node->term = leader_term;
+        node->voted_for = -1;
+        node->role = FOLLOWER;
+    }
+
+    // Si on est CANDIDATE ou FOLLOWER, redevenir/rester FOLLOWER
+    if (node->role != LEADER) {
+        node->role = FOLLOWER;
+    }
+
+    // Réinitialiser le timeout d'élection (on a reçu un message du leader)
+    node_reset_election_timeout(node);
+}
+
+// Envoie des heartbeats à tous les pairs (appelé par le leader)
+void node_send_heartbeats(node_t *node) {
+    for (int i = 0; i < node->peer_count; i++) {
+        rpc_send_heartbeat(node->peers[i].host, node->peers[i].port,
+                          node->node_id, node->term);
+    }
+}
+
+// Retourne le temps actuel en millisecondes
+long node_get_current_time_ms(void) {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
+}
+
+// Réinitialise le timeout d'élection
+void node_reset_election_timeout(node_t *node) {
+    node->last_heartbeat_time = node_get_current_time_ms();
+    // Randomiser à nouveau le timeout pour éviter les élections simultanées
+    node->election_timeout = 150 + (rand() % 150);  // 150-300ms
+}
+
+// Fonction tick appelée périodiquement pour gérer les timeouts et élections
+void node_tick(node_t *node) {
+    long current_time = node_get_current_time_ms();
+
+    // Si on est LEADER, envoyer des heartbeats périodiquement
+    if (node->role == LEADER) {
+        long elapsed_since_last_heartbeat = current_time - node->last_heartbeat_sent;
+
+        // Envoyer un heartbeat toutes les 100ms (bien avant le timeout d'élection)
+        if (elapsed_since_last_heartbeat >= 100) {
+            node_send_heartbeats(node);
+            node->last_heartbeat_sent = current_time;
+        }
+    }
+    // Si on est FOLLOWER ou CANDIDATE, vérifier le timeout d'élection
+    else {
+        long elapsed = current_time - node->last_heartbeat_time;
+
+        // Si le timeout est expiré, lancer une élection
+        if (elapsed >= node->election_timeout) {
+            // Passer en mode CANDIDATE
+            node->role = CANDIDATE;
+            node->term++;  // Incrémenter le terme
+            node->voted_for = -1;  // Réinitialiser le vote
+            node->votes_received = 0;  // Réinitialiser les votes reçus
+
+            printf("Node %d: deviens candidat du terme %d\n", node->node_id, node->term);
+
+            // Réinitialiser le timeout pour le prochain round
+            node_reset_election_timeout(node);
+
+            // Lancer l'élection
+            node_request_votes(node);
+        }
+    }
 }

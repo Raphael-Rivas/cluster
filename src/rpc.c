@@ -84,19 +84,15 @@ void rpc_handle_client(int client_socket, node_t *node) {
         }
     }
     else if (msg == REQUEST_VOTE) {
-        printf("[RPC] REQUEST_VOTE reçu\n");
-
         // Lecture des paramètres : candidate_id (4 octets) et candidate_term (4 octets)
         int32_t candidate_id, candidate_term;
 
         if (recv(client_socket, &candidate_id, sizeof(int32_t), 0) != sizeof(int32_t)) {
-            fprintf(stderr, "[RPC] Échec de lecture du candidate_id\n");
             close(client_socket);
             return;
         }
 
         if (recv(client_socket, &candidate_term, sizeof(int32_t), 0) != sizeof(int32_t)) {
-            fprintf(stderr, "[RPC] Échec de lecture du candidate_term\n");
             close(client_socket);
             return;
         }
@@ -105,8 +101,41 @@ void rpc_handle_client(int client_socket, node_t *node) {
         candidate_id = ntohl(candidate_id);
         candidate_term = ntohl(candidate_term);
 
-        printf("[RPC] REQUEST_VOTE de candidat %d (terme %d)\n", candidate_id, candidate_term);
-        node_handle_request_vote(node, candidate_id, candidate_term);
+        // Traiter la requête de vote et obtenir le résultat
+        int vote_result = node_handle_request_vote(node, candidate_id, candidate_term);
+
+        // Envoyer la réponse au candidat (1 octet : 1 = accordé, 0 = refusé)
+        uint8_t response = vote_result ? VOTE_GRANTED : VOTE_DENIED;
+        if (send(client_socket, &response, 1, 0) < 0) {
+            fprintf(stderr, "[RPC] Échec de l'envoi de la réponse du vote\n");
+        }
+    }
+    else if (msg == MSG_HEARTBEAT) {
+        // Lecture des paramètres : leader_id (4 octets) et leader_term (4 octets)
+        int32_t leader_id, leader_term;
+
+        if (recv(client_socket, &leader_id, sizeof(int32_t), 0) != sizeof(int32_t)) {
+            close(client_socket);
+            return;
+        }
+
+        if (recv(client_socket, &leader_term, sizeof(int32_t), 0) != sizeof(int32_t)) {
+            close(client_socket);
+            return;
+        }
+
+        // Conversion network byte order -> host byte order
+        leader_id = ntohl(leader_id);
+        leader_term = ntohl(leader_term);
+
+        // Traiter le heartbeat
+        node_handle_heartbeat(node, leader_id, leader_term);
+
+        // Envoyer l'ACK
+        uint8_t ack = MSG_HEARTBEAT_ACK;
+        if (send(client_socket, &ack, 1, 0) < 0) {
+            fprintf(stderr, "[RPC] Échec de l'envoi de l'ACK heartbeat\n");
+        }
     }
     else {
         fprintf(stderr, "[RPC] Message inconnu: %u\n", msg);
@@ -302,8 +331,78 @@ int rpc_send_vote_request(const char *host, int port, int candidate_id, int cand
         return -1;
     }
 
-    printf("[RPC] REQUEST_VOTE envoyé à %s:%d (candidat %d, terme %d)\n",
-           host, port, candidate_id, candidate_term);
+    // Attente de la réponse (1 octet : 1 = accordé, 0 = refusé)
+    uint8_t response;
+    ssize_t bytes_received = recv(client_socket, &response, 1, 0);
+
+    close(client_socket);
+
+    if (bytes_received <= 0) {
+        return -1;
+    }
+
+    if (response == VOTE_GRANTED) {
+        return 1;  // Vote accordé
+    } else {
+        return 0;  // Vote refusé
+    }
+}
+
+// Envoie un HEARTBEAT à un pair
+int rpc_send_heartbeat(const char *host, int port, int leader_id, int leader_term) {
+    int client_socket;
+    struct sockaddr_in server_addr;
+    uint8_t msg;
+    int32_t id_net, term_net;
+
+    // Création du socket
+    client_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (client_socket < 0) {
+        return -1;  // Erreur silencieuse pour ne pas polluer les logs
+    }
+
+    // Configuration de l'adresse du serveur
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(port);
+
+    if (inet_pton(AF_INET, host, &server_addr.sin_addr) <= 0) {
+        close(client_socket);
+        return -1;
+    }
+
+    // Connexion au serveur
+    if (connect(client_socket, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+        close(client_socket);
+        return -1;
+    }
+
+    // Envoi du type de message HEARTBEAT
+    msg = MSG_HEARTBEAT;
+    if (send(client_socket, &msg, 1, 0) < 0) {
+        close(client_socket);
+        return -1;
+    }
+
+    // Conversion host byte order -> network byte order
+    id_net = htonl(leader_id);
+    term_net = htonl(leader_term);
+
+    // Envoi du leader_id
+    if (send(client_socket, &id_net, sizeof(int32_t), 0) < 0) {
+        close(client_socket);
+        return -1;
+    }
+
+    // Envoi du leader_term
+    if (send(client_socket, &term_net, sizeof(int32_t), 0) < 0) {
+        close(client_socket);
+        return -1;
+    }
+
+    // Attente de l'ACK (optionnel, on peut ignorer)
+    uint8_t ack;
+    recv(client_socket, &ack, 1, 0);
 
     close(client_socket);
     return 0;

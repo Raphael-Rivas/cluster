@@ -9,12 +9,6 @@ int main(int argc, char *argv[]) {
     int node_id;
     const char *config_file = "src/nodes.conf";
 
-    // Affichage du banner
-    printf("========================================\n");
-    printf("  CLUSTER - Système distribué\n");
-    printf("  Étape 1: Ping et Synchronisation\n");
-    printf("========================================\n\n");
-
     // Vérification des arguments
     if (argc != 2) {
         fprintf(stderr, "Usage: %s <node_id>\n", argv[0]);
@@ -42,17 +36,13 @@ int main(int argc, char *argv[]) {
 
     printf("\n[MAIN] Nœud %d opérationnel\n", node_id);
     printf("[MAIN] Serveur RPC en écoute sur le port %d\n\n", node.port);
+    printf("[MAIN] Démarrage du protocole d'élection RAFT...\n\n");
 
-    // Boucle de synchronisation
-    node_sync_loop(&node);
-
-    // Après synchronisation
-    printf("[MAIN] Synchronisation terminée. Le cluster est opérationnel.\n");
-    printf("[MAIN] Appuyez sur Ctrl+C pour arrêter...\n\n");
-
-    // Boucle infinie (le programme reste actif)
+    // Boucle principale : appeler node_tick() périodiquement
+    // node_tick() gère les timeouts et lance les élections automatiquement
     while (1) {
-        sleep(10);
+        node_tick(&node);
+        usleep(50000);  // Pause de 50ms entre chaque tick
     }
 
     // Nettoyage (jamais atteint dans ce cas)

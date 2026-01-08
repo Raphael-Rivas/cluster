@@ -1,11 +1,6 @@
 #include "config.h"
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
-// Charge la configuration depuis un fichier
-// Format du fichier : id host port (un par ligne)
-// Exemple : 0 127.0.0.1 9000
 int load_config(const char *filename, peer_t *peers, int max_peers) {
     FILE *file;
     int count = 0;
