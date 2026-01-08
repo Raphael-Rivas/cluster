@@ -24,7 +24,7 @@ help:
 	@echo "=========================================="
 	@echo ""
 	@echo "Compilation:"
-	@echo "  make build      - Compile le projet"
+	@echo "  make build      - Compile le projet (cluster + client)"
 	@echo "  make re         - Recompile tout"
 	@echo "  make clean      - Nettoie les fichiers objets"
 	@echo "  make fclean     - Nettoie tout (objets + executable)"
@@ -42,10 +42,12 @@ help:
 	@echo "  5. Terminal 3: make run3"
 	@echo ""
 
-build: $(TARGET)
-all: $(TARGET)
+build: $(TARGET_NODE) $(TARGET_CLIENT)
 
-$(TARGET): $(OBJECTS) | $(BIN_DIR)
+$(TARGET_NODE): $(OBJECTS_NODE) | $(BIN_DIR)
+	$(CC) -o $@ $^ $(LDFLAGS)
+
+$(TARGET_CLIENT): $(OBJECTS_CLIENT) | $(BIN_DIR)
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
@@ -54,19 +56,19 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
 $(BIN_DIR) $(OBJ_DIR):
 	mkdir -p $@
 
-run1: $(TARGET)
+run1: $(TARGET_NODE)
 	@echo "Lancement du noeud 0..."
-	@$(TARGET) 0
+	@$(TARGET_NODE) 0
 
-run2: $(TARGET)
+run2: $(TARGET_NODE)
 	@echo "Lancement du noeud 1..."
-	@$(TARGET) 1
+	@$(TARGET_NODE) 1
 
-run3: $(TARGET)
+run3: $(TARGET_NODE)
 	@echo "Lancement du noeud 2..."
-	@$(TARGET) 2
+	@$(TARGET_NODE) 2
 
-.PHONY: help all build clean fclean re run1 run2 run3
+.PHONY: help build clean fclean re run1 run2 run3
 
 clean:
 	rm -rf $(OBJ_DIR)
