@@ -31,13 +31,11 @@ help:
 	@echo ""
 	@echo "Execution:"
 	@echo "  make run<N>     - Lance le noeud N-1 (ex: make run1 -> noeud 0)"
-	@echo "  make deploy     - Push vers etape3 et development"
 	@echo ""
 	@echo "Utilisation:"
 	@echo "  1. Compiler: make build"
 	@echo "  2. Pour lancer un noeud: make run<N>"
 	@echo "     Exemple: make run1 (noeud 0), make run2 (noeud 1), etc."
-	@echo "  3. Deploiement: make deploy"
 	@echo ""
 
 build: $(TARGET_NODE) $(TARGET_CLIENT)
@@ -66,13 +64,7 @@ run%: $(TARGET_NODE)
 	echo "Lancement du noeud $$NODE_ID..."; \
 	$(TARGET_NODE) $$NODE_ID
 
-deploy:
-	@echo "Pushing to etape3..."
-	git push origin HEAD:etape3
-	@echo "Pushing to development..."
-	git push origin HEAD:development
-
-.PHONY: help build clean fclean re run% deploy
+.PHONY: help build clean fclean re run%
 
 clean:
 	rm -rf $(OBJ_DIR)
