@@ -22,7 +22,7 @@ static void *server_thread_func(void *arg) {
   return NULL;
 }
 
-// Initialise un nSud
+// Initialise un nœud
 int node_init(node_t *node, int node_id, const char *config_file) {
   peer_t all_peers[MAX_PEERS];
   int total_peers;
@@ -34,7 +34,7 @@ int node_init(node_t *node, int node_id, const char *config_file) {
     return -1;
   }
 
-  // Recherche de ce nSud dans la configuration
+  // Recherche de ce nœud dans la configuration
   int found = 0;
   for (int i = 0; i < total_peers; i++) {
     if (all_peers[i].id == node_id) {
@@ -84,7 +84,7 @@ int node_init(node_t *node, int node_id, const char *config_file) {
     return -1;
   }
 
-  // Copie des pairs (en excluant soi-mme)
+  // Copie des pairs (en excluant soi-même)
   int peer_idx = 0;
   for (int i = 0; i < total_peers; i++) {
     if (all_peers[i].id != node_id) {
@@ -102,14 +102,13 @@ int node_init(node_t *node, int node_id, const char *config_file) {
   return 0;
 }
 
-// Libre les ressources d'un nSud
+// Libère les ressources d'un nœud
 void node_cleanup(node_t *node) {
   if (node->peers) {
     free(node->peers);
     node->peers = NULL;
   }
   if (node->peer_status) {
-    free(node->peer_status);
     free(node->peer_status);
     node->peer_status = NULL;
   }
@@ -123,7 +122,7 @@ void node_cleanup(node_t *node) {
   }
 }
 
-// Dmarre le serveur RPC du nSud dans un thread spar
+// Démarre le serveur RPC du nœud dans un thread séparé
 int node_start_server(node_t *node) {
   int server_socket;
   pthread_t server_thread;
@@ -154,7 +153,7 @@ int node_start_server(node_t *node) {
     return -1;
   }
 
-  // Dtachement du thread (nettoyage automatique)
+  // Détachement du thread (nettoyage automatique)
   pthread_detach(server_thread);
 
   printf("[NODE] Serveur RPC démarré dans un thread séparé\n");
@@ -219,14 +218,14 @@ int node_ping_all_peers(node_t *node) {
     int result = rpc_send_ping(node->peers[i].host, node->peers[i].port);
 
     if (result == 0) {
-      // PONG reu
+      // PONG reçu
       if (node->peer_status[i] == 0) {
         printf("[NODE] Pair %d (%s:%d) est maintenant DISPONIBLE\n",
                node->peers[i].id, node->peers[i].host, node->peers[i].port);
       }
       node->peer_status[i] = 1;
     } else {
-      // Pas de rponse
+      // Pas de réponse
       node->peer_status[i] = 0;
       all_available = 0;
     }
