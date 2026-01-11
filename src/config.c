@@ -1,40 +1,45 @@
 #include "config.h"
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
-// Charge la configuration depuis un fichier
-// Format du fichier : id host port (un par ligne)
-// Exemple : 0 127.0.0.1 9000
 int load_config(const char *filename, peer_t *peers, int max_peers) {
-    FILE *file;
-    int count = 0;
+  FILE *file;
+  int count = 0;
+  char line[256];
 
-    // Ouverture du fichier
-    file = fopen(filename, "r");
-    if (!file) {
-        perror("[CONFIG] Erreur d'ouverture du fichier");
-        return -1;
+  // Ouverture du fichier
+  file = fopen(filename, "r");
+  if (!file) {
+    perror("[CONFIG] Erreur d'ouverture du fichier");
+    return -1;
+  }
+
+  // Lecture ligne par ligne
+  while (count < max_peers && fgets(line, sizeof(line), file)) {
+    // Ignorer les lignes vides ou commentaires
+    char *ptr = line;
+    while (*ptr == ' ' || *ptr == '\t')
+      ptr++; // Skip whitespace
+    if (*ptr == '\0' || *ptr == '\n' || *ptr == '#')
+      continue;
+
+    // Parse logic
+    if (sscanf(line, "%d %63s %d", &peers[count].id, peers[count].host,
+               &peers[count].port) == 3) {
+      count++;
+    } else {
+      fprintf(stderr, "[CONFIG] Ligne ignorée (format invalide): %s", line);
     }
+  }
 
-    // Lecture ligne par ligne
-    while (count < max_peers &&
-           fscanf(file, "%d %63s %d",
-                  &peers[count].id,
-                  peers[count].host,
-                  &peers[count].port) == 3) {
-        count++;
-    }
+  fclose(file);
 
-    fclose(file);
+  printf("[CONFIG] %d pair(s) chargé(s) depuis %s\n", count, filename);
 
-    printf("[CONFIG] %d pair(s) chargé(s) depuis %s\n", count, filename);
+  // Affichage des pairs chargés
+  for (int i = 0; i < count; i++) {
+    printf("[CONFIG] Pair %d: ID=%d, Host=%s, Port=%d\n", i, peers[i].id,
+           peers[i].host, peers[i].port);
+  }
 
-    // Affichage des pairs chargés
-    for (int i = 0; i < count; i++) {
-        printf("[CONFIG] Pair %d: ID=%d, Host=%s, Port=%d\n",
-               i, peers[i].id, peers[i].host, peers[i].port);
-    }
-
-    return count;
+  return count;
 }
