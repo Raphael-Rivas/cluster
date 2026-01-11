@@ -17,14 +17,18 @@ void usage(char *prog) {
 }
 
 int main(int argc, char *argv[]) {
-  if (argc < 4)
+  if (argc < 5)
     usage(argv[0]);
 
   const char *host = argv[1];
   int port = atoi(argv[2]);
   char *cmd = argv[3];
   char *key = argv[4];
+  char key_buf[32] = {0}; // Buffer paddé à zéro
   int value = 0;
+
+  // Copier la clé dans le buffer (max 31 chars + null terminator)
+  strncpy(key_buf, key, 31);
 
   if (strcmp(cmd, "PUT") == 0) {
     if (argc != 6)
@@ -60,7 +64,7 @@ int main(int argc, char *argv[]) {
   if (strcmp(cmd, "PUT") == 0) {
     uint8_t type = MSG_CLIENT_PUT;
     send(sock, &type, 1, 0);
-    send(sock, key, 32, 0); // Fixed size 32
+    send(sock, key_buf, 32, 0); // Buffer paddé à 32 octets
     int32_t val_net = htonl(value);
     send(sock, &val_net, 4, 0);
 
@@ -79,7 +83,7 @@ int main(int argc, char *argv[]) {
   } else { // GET
     uint8_t type = MSG_CLIENT_GET;
     send(sock, &type, 1, 0);
-    send(sock, key, 32, 0);
+    send(sock, key_buf, 32, 0); // Buffer paddé à 32 octets
 
     uint8_t resp;
     recv(sock, &resp, 1, 0);
