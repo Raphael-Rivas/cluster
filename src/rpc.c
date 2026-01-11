@@ -146,24 +146,32 @@ void rpc_handle_client(int client_socket, node_t *node) {
     log_entry_t *entries = NULL;
     if (entries_count > 0) {
       entries = malloc(sizeof(log_entry_t) * entries_count);
+      if (!entries) {
+        fprintf(stderr, "[RPC] Échec d'allocation mémoire pour entries\n");
+        close(client_socket);
+        return;
+      }
       for (int i = 0; i < entries_count; i++) {
         // Lecture de chaque entrée (simplifié: read tout le struct ou champ par
         // champ pour portabilité) Pour éviter problèmes de padding/endianness
         // struct, on lit champ par champ
         int32_t idx, term, type, val;
 
-        recv(client_socket, &idx, sizeof(int32_t), 0);
-        recv(client_socket, &term, sizeof(int32_t), 0);
-        recv(client_socket, &type, sizeof(int32_t), 0);
-        recv(client_socket, entries[i].key, 32,
-             0); // Key is fixed size char array
-        recv(client_socket, &val, sizeof(int32_t), 0);
+        if (recv(client_socket, &idx, sizeof(int32_t), 0) != sizeof(int32_t) ||
+            recv(client_socket, &term, sizeof(int32_t), 0) != sizeof(int32_t) ||
+            recv(client_socket, &type, sizeof(int32_t), 0) != sizeof(int32_t) ||
+            recv(client_socket, entries[i].key, 32, 0) != 32 ||
+            recv(client_socket, &val, sizeof(int32_t), 0) != sizeof(int32_t)) {
+          free(entries);
+          close(client_socket);
+          return;
+        }
 
         entries[i].index = ntohl(idx);
         entries[i].term = ntohl(term);
         entries[i].type = ntohl(type);
         entries[i].value = ntohl(val);
-        // Key deja lue
+        // Key déjà lue
       }
     }
 
@@ -289,9 +297,6 @@ void rpc_server_run(int server_socket, node_t *node) {
     }
 
     args->node = node;
-
-    printf("[RPC] Nouvelle connexion de %s:%d\n",
-           inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
 
     // Création du thread pour gérer le client
     if (pthread_create(&thread_id, NULL, rpc_client_thread, args) != 0) {
