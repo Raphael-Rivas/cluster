@@ -1,8 +1,7 @@
-# Rapport - Étape 3 : AppendEntries et Table Clé-Valeur Répliquée
+# Rapport : AppendEntries et Table Clé-Valeur Répliquée
 
 **Projet** : Cluster de Nœuds - Système Distribué RAFT  
-**Auteurs** : Cyprien BONS, Raphaël RIVAS, Maël NICOLAS, Killian RAMUS  
-**Date** : Janvier 2026
+**Auteurs** : Cyprien BONS, Raphaël RIVAS, Maël NICOLAS, Killian RAMUS
 
 ---
 
@@ -23,14 +22,7 @@
 
 ## Introduction
 
-Ce rapport documente l'implémentation de l'**Étape 3** du projet de cluster distribué basé sur le protocole RAFT. Cette étape ajoute la réplication de log et une table clé-valeur distribuée au système d'élection de leader développé dans les étapes précédentes.
-
-### Objectifs de l'Étape 3
-
-- Implémenter le mécanisme **AppendEntries** pour la réplication de log
-- Créer une **table clé-valeur distribuée** avec cohérence éventuelle
-- Gérer les opérations **PUT** (écriture) et **GET** (lecture)
-- Assurer la **redirection automatique** vers le leader pour les écritures
+Ce rapport documente l'implémentation du projet de cluster distribué basé sur le protocole RAFT. Avec une réplication de log et une table clé-valeur distribuée au système d'élection de leader.
 
 ---
 
@@ -54,7 +46,7 @@ Le système repose sur trois composants principaux :
 
 ### 1. Structure de `log_entry_t`
 
-La structure représentant une entrée de log est définie dans [`include/node.h`](file:///home/depinfo/CLionProjects/cluster-1/include/node.h#L11-L17) :
+La structure représentant une entrée de log est définie dans [`include/node.h`] :
 
 ```c
 typedef struct {
@@ -79,7 +71,7 @@ typedef struct {
 
 ### 2. Gestion d'AppendEntries (follower)
 
-L'implémentation se trouve dans [`src/node.c`](file:///home/depinfo/CLionProjects/cluster-1/src/node.c#L368-L445) dans la fonction `node_handle_append_entries()`.
+L'implémentation se trouve dans [`src/node.c`] dans la fonction `node_handle_append_entries()`.
 
 #### Règles de sécurité RAFT implémentées
 
@@ -127,7 +119,7 @@ if (leader_commit > node->commitIndex) {
 
 ### 3. Application au KV Store
 
-La fonction `node_apply_committed_entries()` dans [`src/node.c`](file:///home/depinfo/CLionProjects/cluster-1/src/node.c#L192-L208) applique les logs committés :
+La fonction `node_apply_committed_entries()` dans [`src/node.c`] applique les logs committés :
 
 ```c
 void node_apply_committed_entries(node_t *node) {
@@ -174,7 +166,7 @@ void node_kv_put(node_t *node, const char *key, int value) {
 
 #### PUT (Écriture)
 
-Implémentation dans [`src/node.c`](file:///home/depinfo/CLionProjects/cluster-1/src/node.c#L534-L570) :
+Implémentation dans [`src/node.c`] :
 
 ```c
 int node_handle_client_put(node_t *node, const char *key, int value, int *leader_id) {
@@ -207,7 +199,7 @@ int node_handle_client_put(node_t *node, const char *key, int value, int *leader
 
 #### GET (Lecture)
 
-Implémentation dans [`src/node.c`](file:///home/depinfo/CLionProjects/cluster-1/src/node.c#L573-L588) :
+Implémentation dans [`src/node.c`] :
 
 ```c
 int node_handle_client_get(node_t *node, const char *key, int *found, int *leader_id) {
@@ -229,7 +221,7 @@ int node_handle_client_get(node_t *node, const char *key, int *found, int *leade
 
 #### Client CLI
 
-Le client [`src/client.c`](file:///home/depinfo/CLionProjects/cluster-1/src/client.c) envoie les commandes via RPC :
+Le client [`src/client.c`] envoie les commandes via RPC :
 
 ```bash
 # Écriture
@@ -277,8 +269,7 @@ make run3
 
 **Résultat obtenu :**
 ✅ Le leader traite correctement les PUT  
-✅ Les followers reçoivent les AppendEntries  
-⚠️ Délai de réplication observable (cohérence éventuelle)
+✅ Les followers reçoivent les AppendEntries
 
 ### Test 2 : Lecture sur un follower
 
@@ -354,15 +345,7 @@ Le système est stable pour des scénarios simples (3 nœuds, pas de pannes). De
 
 ### Fichiers principaux
 
-- [`src/node.c`](file:///home/depinfo/CLionProjects/cluster-1/src/node.c) : Logique RAFT complète
-- [`src/rpc.c`](file:///home/depinfo/CLionProjects/cluster-1/src/rpc.c) : Protocole RPC et AppendEntries
-- [`src/client.c`](file:///home/depinfo/CLionProjects/cluster-1/src/client.c) : Client CLI
-- [`include/node.h`](file:///home/depinfo/CLionProjects/cluster-1/include/node.h) : Structures et prototypes
-
-### Tests de validation
-
-Un script de test automatisé [`test_phase3.sh`](file:///home/depinfo/CLionProjects/cluster-1/test_phase3.sh) valide :
-- L'élection du leader
-- Les opérations PUT/GET
-- La redirection vers le leader
-- La réplication (avec délai observable)
+- [`src/node.c`] : Logique RAFT complète
+- [`src/rpc.c`] : Protocole RPC et AppendEntries
+- [`src/client.c`] : Client CLI
+- [`include/node.h`] : Structures et prototypes
